@@ -5,10 +5,10 @@ authors = ["Aaron Boodman <aaron@aaronboodman.com>"]
 edition = "2018"
 
 [dependencies]
-base32 = "0.4.0"
+data-encoding = "1.1.1"
+sha2 = "0.8.1"
 wasm-bindgen = "0.2"
 wee_alloc = "0.4.5"
-sha2 = "0.8.1"
 
 [lib]
 crate-type = ["cdylib"]

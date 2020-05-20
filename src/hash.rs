@@ -1,14 +1,32 @@
 use std::fmt;
+
+use data_encoding::decode;
+use data_encoding::encode;
+use data_encoding::base;
 use sha2::{Sha512, Digest};
 
 pub const BYTE_LENGTH: usize = 20;
-
-// This is kind of lame but I don't want to re-implement base32, and the base32 package doesn't support pluggable libraries.
-const CROCKFORD_ALPHABET: &'static [u8] = b"0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 const NOMS_ALPHABET: &'static [u8] = b"0123456789abcdefghijklmnopqrstuv";
+
+struct Base32 {}
+
+impl base::Base for Base32 {
+    fn pad(&self) -> u8 {
+        '=' as u8
+    }
+    fn val(&self, x: u8) -> Option<u8> {
+        Some(NOMS_ALPHABET.iter().position(|y| x == *y)? as u8)
+    }
+}
+
 
 pub struct Hash {
     sum: [u8; BYTE_LENGTH]
+}
+
+#[derive(Copy,Clone,Debug,PartialEq,Eq)]
+pub enum Error {
+    InvalidHashSerialization
 }
 
 impl Hash {
@@ -20,17 +38,12 @@ impl Hash {
         Hash{sum}
     }
 
-    pub fn parse(s: &str) -> Option<Hash> {
-        let mut ss = String::with_capacity(s.len());
-        for c in s.bytes() {
-            let p = NOMS_ALPHABET.iter().position(|cc| *cc == c)?;
-            ss.push(char::from(CROCKFORD_ALPHABET[p]));
-        }
-        
-        let buf = base32::decode(base32::Alphabet::Crockford, ss.as_str())?;
+    pub fn parse(s: &str) -> Result<Hash, Error> {
         let mut h = Hash::empty();
-        h.sum.copy_from_slice(buf.as_slice());
-        Some(h)
+        match decode::decode_mut(&Base32{}, s.as_bytes(), &mut h.sum) {
+            Err(_) => Err(Error::InvalidHashSerialization),
+            Ok(_) => Ok(h),
+        }
     }
 
     pub fn of(data: &[u8]) -> Hash {
@@ -48,20 +61,11 @@ impl Hash {
 }
 
 impl fmt::Display for Hash {
-    // TODO: Is it idiomatic to do this in fmt, or should there be a to_string() too?
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        // TODO: Would be better to not allocate here since we know the size of the resulting string, but base32 package doesn't support.
-        let mut str = base32::encode(base32::Alphabet::Crockford, &self.sum);
-
-        // TODO: Unsafe :(
-        unsafe {
-            for c in str.as_mut_vec().iter_mut() {
-                // TODO: Unwrap here is sad, but fmt::Result looks like it can't transmit an error message?
-                let p = CROCKFORD_ALPHABET.iter().position(|cc| cc == c).unwrap();
-                *c = NOMS_ALPHABET[p];
-            }
-        }
-        write!(f, "{}", str)
+        // TODO: encode_mut will write to a buffer, can we avoid the
+        // heap allocated string somehow that way?
+        let s = encode::encode(&Base32{}, &self.sum);
+        write!(f, "{}", s)
     }
 }
 
