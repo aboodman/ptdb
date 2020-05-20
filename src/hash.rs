@@ -21,9 +21,15 @@ impl Hash {
     }
 
     pub fn parse(s: &str) -> Option<Hash> {
-        let buf = base32::decode(base32::Alphabet::Crockford, s)?;
+        let mut ss = String::with_capacity(s.len());
+        for c in s.bytes() {
+            let p = NOMS_ALPHABET.iter().position(|cc| *cc == c)?;
+            ss.push(char::from(CROCKFORD_ALPHABET[p]));
+        }
+        
+        let buf = base32::decode(base32::Alphabet::Crockford, ss.as_str())?;
         let mut h = Hash::empty();
-        h.sum.copy_from_slice(&buf);
+        h.sum.copy_from_slice(buf.as_slice());
         Some(h)
     }
 
@@ -72,5 +78,8 @@ mod tests {
         h = Hash::of(b"abc");
         assert_eq!(h.is_empty(), false);
         assert_eq!(format!("{}", h), "rmnjb8cjc5tblj21ed4qs821649eduie");
+
+        let h2 = Hash::parse("rmnjb8cjc5tblj21ed4qs821649eduie").unwrap();
+        assert_eq!(h2.to_string(), h.to_string());
     }
 }
