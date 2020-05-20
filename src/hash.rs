@@ -1,7 +1,11 @@
 use std::fmt;
 use sha2::{Sha512, Digest};
 
-const BYTE_LENGTH: usize = 20;
+pub const BYTE_LENGTH: usize = 20;
+
+// This is kind of lame but I don't want to re-implement base32, and the base32 package doesn't support pluggable libraries.
+const CROCKFORD_ALPHABET: &'static [u8] = b"0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+const NOMS_ALPHABET: &'static [u8] = b"0123456789abcdefghijklmnopqrstuv";
 
 pub struct Hash {
     sum: [u8; BYTE_LENGTH]
@@ -31,22 +35,42 @@ impl Hash {
         h.sum.copy_from_slice(&result[..BYTE_LENGTH]);
         return h;
     }
+
+    pub fn is_empty(&self) -> bool {
+        return self.sum == [0; BYTE_LENGTH];
+    }
 }
 
 impl fmt::Display for Hash {
+    // TODO: Is it idiomatic to do this in fmt, or should there be a to_string() too?
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", "foo")
+        // TODO: Would be better to not allocate here since we know the size of the resulting string, but base32 package doesn't support.
+        let mut str = base32::encode(base32::Alphabet::Crockford, &self.sum);
+
+        // TODO: Unsafe :(
+        unsafe {
+            for c in str.as_mut_vec().iter_mut() {
+                // TODO: Unwrap here is sad, but fmt::Result looks like it can't transmit an error message?
+                let p = CROCKFORD_ALPHABET.iter().position(|cc| cc == c).unwrap();
+                *c = NOMS_ALPHABET[p];
+            }
+        }
+        write!(f, "{}", str)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    // Note this useful idiom: importing names from outer (for mod tests) scope.
     use super::*;
 
     #[test]
     fn test_of() {
-        let h = Hash::of(b"abc");
-        print!("{}", h);
+        let mut h = Hash::empty();
+        assert_eq!(h.is_empty(), true);
+        assert_eq!(format!("{}", h), "00000000000000000000000000000000");
+
+        h = Hash::of(b"abc");
+        assert_eq!(h.is_empty(), false);
+        assert_eq!(format!("{}", h), "rmnjb8cjc5tblj21ed4qs821649eduie");
     }
 }
