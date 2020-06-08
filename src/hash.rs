@@ -21,7 +21,7 @@ impl base::Base for Base32 {
 
 
 pub struct Hash {
-    sum: [u8; BYTE_LENGTH]
+    pub sum: [u8; BYTE_LENGTH]
 }
 
 #[derive(Copy,Clone,Debug,PartialEq,Eq)]
